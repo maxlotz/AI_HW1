@@ -11,20 +11,17 @@ typedef vector< vector<double> > matrix; // matrices are all vectors of vectors 
 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
-// displays the contents of a matrix to the terminal, columns seperated by tab, rows seperated by newline
-void dispmat(vector< vector<double> >); 
+// Displays the contents of a matrix to the terminal, columns seperated by tab, rows seperated by newline
+void dispmat(matrix); 
 
-//multiplies two matrices, prints to terminal if dimensions aren't consistent
-vector< vector<double> > matmul (vector< vector<double> >, vector< vector<double> >);
-
-// creates two matrices for testing
-tuple< vector< vector<double> >, vector< vector<double> > > testinit(void);
+// Multiplies two matrices, prints to terminal if dimensions aren't consistent
+matrix matmul (matrix, matrix);
 
 // Converts string from input file into a matrix
-vector< vector<double> > str2mat (string);
+matrix str2mat (string);
 
 // Converts matrix into string for output format (opposite of str2mat)
-string mat2str (vector< vector<double> >);
+string mat2str (matrix);
 
 // MAIN PROGRAM HERE
 int main(int argc, char *argv[])
@@ -37,9 +34,9 @@ int main(int argc, char *argv[])
     }
     else 
     {
-		vector< vector<double> > A; //transmission matrix
-		vector< vector<double> > B; //emmission matrix
-		vector< vector<double> > PI; //intial state distribution
+		matrix A; //transmission matrix
+		matrix B; //emmission matrix
+		matrix PI; //intial state distribution
 	   	
 	   	string line;
 	   	string D;
@@ -53,7 +50,7 @@ int main(int argc, char *argv[])
 }
 
 // FUNCTIONS BODIES HERE
-void dispmat(vector<vector<double>> vec)
+void dispmat(matrix vec)
 {
 	for (int i = 0; i < vec.size(); i++)
 	{
@@ -65,50 +62,31 @@ void dispmat(vector<vector<double>> vec)
 	}
 }
 
-vector< vector<double> > matmul (vector< vector<double> > matrixa, vector< vector<double> > matrixb)
+matrix matmul (matrix mat_a, matrix mat_b)
 {
-	vector< vector<double> > matrixc (matrixa.size(),vector<double>(matrixb[0].size()));
-	if (matrixa[0].size() != matrixb.size())
+	matrix mat_c (mat_a.size(),vector<double>(mat_b[0].size()));
+	if (mat_a[0].size() != mat_b.size())
 	{
 		cout << "matrix dimensions inconsistent \n";
 	}
 	else
 	{
-		for(int i = 0; i < matrixa.size(); i++)
+		for(int i = 0; i < mat_a.size(); i++)
 		{
-			for(int j = 0; j < matrixb[0].size(); j++)
+			for(int j = 0; j < mat_b[0].size(); j++)
 			{
-				for(int k = 0; k < matrixa[0].size(); k++)
+				for(int k = 0; k < mat_a[0].size(); k++)
 				{
-					matrixc[i][j] += matrixa[i][k]*matrixb[k][j]; 
+					mat_c[i][j] += mat_a[i][k]*mat_b[k][j]; 
 				}
 			}
 
 		}   
-		return matrixc;
+		return mat_c;
 	}
 }
 
-tuple< vector< vector<double> >, vector< vector<double> > > testinit(void)
-{
-	vector< vector<double> > matrixa;
-	vector<double> a_row1{0.1,0.2};
-	vector<double> a_row2{0.3,0.4};
-	vector<double> a_row3{0.5,0.6};
-	matrixa.push_back(a_row1);
-	matrixa.push_back(a_row2);
-	matrixa.push_back(a_row3);
-
-	vector< vector<double> > matrixb;
-	vector<double> b_row1{0.05, 0.1, 0.15, 0.2, 0.25, 0.3};
-	vector<double> b_row2{0.35, 0.4, 0.45, 0.5, 0.55, 0.6};
-	matrixb.push_back(b_row1);
-	matrixb.push_back(b_row2);
-
-	return make_tuple(matrixa, matrixb);
-}
-
-vector< vector<double> > str2mat (string line)
+matrix str2mat (string line)
 {
 	istringstream ss(line);
 	vector <string> record;
@@ -123,7 +101,7 @@ vector< vector<double> > str2mat (string line)
 	}
 	int rows = stoi(record[0]);
 	int cols = stoi(record[1]);
-	vector< vector<double> > outmat (rows, vector<double> (cols));
+	matrix outmat (rows, vector<double> (cols));
 
 	for(int i = 0; i < rows; i++)
 	{
@@ -135,7 +113,7 @@ vector< vector<double> > str2mat (string line)
 	return outmat;
 }
 
-string mat2str (vector< vector<double> > inmat)
+string mat2str (matrix inmat)
 {
 	int rows = inmat.size();
 	int cols = inmat[0].size();
@@ -147,7 +125,14 @@ string mat2str (vector< vector<double> > inmat)
 	{
 		for(int j = 0; j < cols; j++)
 		{
-			outline += blank + to_string(inmat[i][j]); 
+			stringstream ss;
+			ss << inmat[i][j];
+			string temp = ss.str();
+			if (temp == "0")
+			{
+				temp = "0.0";
+			}
+			outline += blank + temp;
 		}
 	}
 	return outline;
