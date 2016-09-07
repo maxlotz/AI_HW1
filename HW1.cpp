@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
 		matrix A; //transmission matrix
 		matrix B; //emmission matrix
 		matrix PI; //intial state distribution
+		vector<int> O_seq; //emmission sequence
 	   	
 	 	string line;
 		getline(infile, line);
