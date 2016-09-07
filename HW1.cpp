@@ -1,6 +1,5 @@
 #include <iostream>
 #include <vector>
-#include <tuple>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -14,11 +13,17 @@ typedef vector< vector<double> > matrix; // matrices are all vectors of vectors 
 // Displays the contents of a matrix to the terminal, columns seperated by tab, rows seperated by newline
 void dispmat(matrix); 
 
-// Multiplies two matrices, prints to terminal if dimensions aren't consistent
+// Multiplies two matrices. If matrix dimensions aren't consistent, a matrix populated with 0s will be returned, and an error message will be printed to the terminal.
 matrix matmul (matrix, matrix);
+
+// returns transpose of given matrix
+matrix transpose (matrix);
 
 // Converts string from input file into a matrix
 matrix str2mat (string);
+
+// converts string from input file into vector of ints containing the emmission sequence
+vector<int> str2seq (string);
 
 // Converts matrix into string for output format (opposite of str2mat)
 string mat2str (matrix);
@@ -38,14 +43,17 @@ int main(int argc, char *argv[])
 		matrix B; //emmission matrix
 		matrix PI; //intial state distribution
 	   	
-	   	string line;
-	   	string D;
+	 	string line;
 		getline(infile, line);
 		A = str2mat(line);
-		D = mat2str(A);
-		cout << D;
+		getline(infile, line);
+		B = str2mat(line);
+		getline(infile, line);
+		PI = str2mat(line);
+		//getline(infile, line);
+		//O_seq = str2seq(line); // emmission sequence
 
-		return 0;
+		return 0; // answer goes here, eg. return mat2str(answer_matrix);
 	}
 }
 
@@ -67,7 +75,7 @@ matrix matmul (matrix mat_a, matrix mat_b)
 	matrix mat_c (mat_a.size(),vector<double>(mat_b[0].size()));
 	if (mat_a[0].size() != mat_b.size())
 	{
-		cout << "matrix dimensions inconsistent \n";
+		cout << "matrix dimensions inconsistent\n";
 	}
 	else
 	{
@@ -84,6 +92,19 @@ matrix matmul (matrix mat_a, matrix mat_b)
 		}   
 		return mat_c;
 	}
+}
+
+matrix transpose (matrix inmat)
+{
+	matrix outmat (inmat[0].size(), vector<double>(inmat.size()));
+	for (int i = 0; i < inmat.size(); i++)
+	{
+		for (int j = 0; j < inmat[0].size(); j++)
+		{
+			outmat[i][j] = inmat[j][i];
+		}
+	}
+	return outmat;
 }
 
 matrix str2mat (string line)
@@ -111,6 +132,29 @@ matrix str2mat (string line)
 		}
 	}
 	return outmat;
+}
+
+vector<int> str2seq (string line)
+{
+	istringstream ss(line);
+	vector <string> record;
+
+	while(ss)
+	{
+		string s;
+		{
+			if (!getline( ss, s, ' ' )) break;
+  			record.push_back( s );
+		}
+	}
+	int vecsize = stoi(record[0]);
+	vector<int> outvec(vecsize);
+	
+	for (int i = 0; i < vecsize; i++)
+	{
+		outvec[i] = stoi(record[i+1]);
+	}
+	return outvec;
 }
 
 string mat2str (matrix inmat)
