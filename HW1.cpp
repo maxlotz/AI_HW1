@@ -1,3 +1,10 @@
+/*Compiler settings
+
+For C++, Kattis uses gcc version g++ (Ubuntu 5.4.0-6ubuntu1~16.04.2) 5.4.0 20160609 with the following flags: -g -O2 -static -std=gnu++11 {files}.
+System libraries
+
+You are allowed to use all standard libraries included with C++.*/
+
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -29,33 +36,29 @@ vector<int> str2seq (string);
 string mat2str (matrix);
 
 // MAIN PROGRAM HERE
-int main(int argc, char *argv[])
+int main(void)
 {
+  	string line;
+	matrix A; //transmission matrix
+	matrix B; //emmission matrix
+	matrix PI; //intial state distribution
+	matrix out;
+	//vector<int> O_seq; //emmission sequence
+   	
+	getline(cin,line);	
+	A = str2mat(line);
+	getline(cin, line);
+	B = str2mat(line);
+	getline(cin, line);
+	PI = str2mat(line);
 
-    ifstream infile ( argv[1] );
-    if ( !infile.is_open() )
-    {
-    	cout<<"Could not open file\n";
-    }
-    else 
-    {
-		matrix A; //transmission matrix
-		matrix B; //emmission matrix
-		matrix PI; //intial state distribution
-		vector<int> O_seq; //emmission sequence
-	   	
-	 	string line;
-		getline(infile, line);
-		A = str2mat(line);
-		getline(infile, line);
-		B = str2mat(line);
-		getline(infile, line);
-		PI = str2mat(line);
-		//getline(infile, line);
-		//O_seq = str2seq(line); // emmission sequence
+	out = matmul(matmul(PI,A),B);
 
-		return 0; // answer goes here, eg. return mat2str(answer_matrix);
-	}
+	cout << mat2str(out);
+	//getline(infile, line);
+	//O_seq = str2seq(line); // emmission sequence
+
+	return 0; // answer goes here, eg. return mat2str(answer_matrix);
 }
 
 // FUNCTIONS BODIES HERE
