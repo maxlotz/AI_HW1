@@ -18,28 +18,32 @@ typedef vector< vector<double> > matrix; // matrices are all vectors of vectors 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
 // Displays the contents of a matrix to the terminal, columns seperated by tab, rows seperated by newline
-void dispmat(matrix); 
+void dispmat(matrix inmat); 
 
-// Multiplies two matrices. If matrix dimensions aren't consistent, a matrix populated with 0s will be returned, and an error message will be printed to the terminal.
-matrix matmul (matrix, matrix);
+// Multiplies two matrices. If there is a dimension mismatch, error is printed to terminal
+matrix matmul (matrix mat_a, matrix mat_b);
+
+// Performs dot multiplication of 1 row and 1 column matrix
+matrix vecdot (matrix rowmat, matrix colmat);
 
 // returns transpose of given matrix
-matrix transpose (matrix);
+matrix transpose (matrix inmat);
 
 // Converts string from input file into a matrix
-matrix str2mat (string);
+matrix str2mat (string line);
 
 // converts string from input file into vector of ints containing the emmission sequence
-vector<int> str2seq (string);
+vector<int> str2seq (string line);
 
 // Converts matrix into string for output format (opposite of str2mat)
-string mat2str (matrix);
+matrix str2mat (string line);
 
 // Returns column matrix which is the given column of the input matrix
 matrix matcol (matrix inmat, int col);
 
-// returns probability of getting first observation of the emmission sequence
-double alpha1 (matrix B, matrix PI, vector<int> O_seq);
+// Returns probability of getting first observation of the emmission sequence
+matrix alpha1 (matrix B, matrix PI, vector<int> O_seq);
+
 
 // MAIN PROGRAM HERE
 int main(void)
@@ -48,7 +52,6 @@ int main(void)
 	matrix A; //transmission matrix
 	matrix B; //emmission matrix
 	matrix PI; //intial state distribution
-	matrix test;
 	vector<int> O_seq; //emmission sequence
    	
 	getline(cin,line);	
@@ -60,27 +63,27 @@ int main(void)
 	getline(cin, line);
 	O_seq = str2seq(line); // emmission sequence
 
-	double ans;
-	ans = alpha1(B, PI, O_seq);
+	matrix test = alpha1(B, PI, O_seq);
+	dispmat(test);
 
-	dispmat(A);
-	cout << "\n";
-	dispmat(B);
-	cout << "\n";
-	dispmat(PI);
-	cout << "\n" << line << "\n\n" << ans << "\n";
+	// dispmat(A);
+	// cout << "\n";
+	// dispmat(B);
+	// cout << "\n";
+	// dispmat(PI);
+	// cout << "\n" << line << "\n\n" << ans << "\n";
 
 	return 0; // answer goes here, eg. return mat2str(answer_matrix);
 }
 
 // FUNCTIONS BODIES HERE
-void dispmat(matrix vec)
+void dispmat(matrix inmat)
 {
-	for (int i = 0; i < vec.size(); i++)
+	for (int i = 0; i < inmat.size(); i++)
 	{
-	    for (int j = 0; j < vec[i].size(); j++)
+	    for (int j = 0; j < inmat[i].size(); j++)
 	    {
-	        cout << vec[i][j] << "\t";
+	        cout << inmat[i][j] << "\t";
 	    }
 	    cout << "\n";
 	}
@@ -88,13 +91,13 @@ void dispmat(matrix vec)
 
 matrix matmul (matrix mat_a, matrix mat_b)
 {
-	matrix mat_c (mat_a.size(),vector<double>(mat_b[0].size()));
 	if (mat_a[0].size() != mat_b.size())
 	{
-		cout << "matrix dimensions inconsistent\n";
+		cout << "dimension mismatch\n";
 	}
 	else
 	{
+		matrix mat_c (mat_a.size(),vector<double>(mat_b[0].size()));
 		for(int i = 0; i < mat_a.size(); i++)
 		{
 			for(int j = 0; j < mat_b[0].size(); j++)
@@ -110,6 +113,23 @@ matrix matmul (matrix mat_a, matrix mat_b)
 	}
 }
 
+matrix vecdot (matrix mat_row, matrix mat_col)
+{	
+	if(mat_row[0].size() != mat_col.size())
+	{
+		cout << "dimension mismatch\n";
+	}
+	else
+	{
+		matrix outmat (1, vector<double> (mat_col.size()) );
+		for(int i = 0; i < mat_col.size(); i++)
+		{
+			outmat[0][i] = mat_row[0][i]*mat_col[i][0];
+		}
+		return outmat;
+	}
+}
+
 matrix transpose (matrix inmat)
 {
 	matrix outmat (inmat[0].size(), vector<double>(inmat.size()));
@@ -117,7 +137,7 @@ matrix transpose (matrix inmat)
 	{
 		for (int j = 0; j < inmat[0].size(); j++)
 		{
-			outmat[i][j] = inmat[j][i];
+			outmat[j][i] = inmat[i][j];
 		}
 	}
 	return outmat;
@@ -209,9 +229,9 @@ matrix matcol (matrix inmat, int col)
 	return outmat;
 }
 
-double alpha1 (matrix B, matrix PI, vector<int> O_seq)
+matrix alpha1 (matrix B, matrix PI, vector<int> O_seq)
 {
-	matrix outmat;
-	outmat = matmul(PI,matcol(B,O_seq[0]));
-	return outmat[0][0];
+	matrix outmat (1, vector<double> (PI[0].size()));
+	outmat = vecdot(PI,matcol(B,O_seq[0]));
+	return outmat;
 }
