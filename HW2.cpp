@@ -44,6 +44,15 @@ matrix matcol (matrix inmat, int col);
 // Returns probability of getting first observation of the emmission sequence
 matrix alpha1 (matrix B, matrix PI, vector<int> O_seq);
 
+// Does 1 time step for the alpha
+matrix alphan (matrix A, matrix B, matrix prev_alpha, int O_t);
+
+// Sums each entry of the alpha matrix
+double alphasum (matrix alpha);
+
+// Returns vector of alpha values for each observation and timestep
+matrix alpha_forward(matrix A, matrix B, matrix PI, vector<int> O_seq);
+
 
 // MAIN PROGRAM HERE
 int main(void)
@@ -61,19 +70,12 @@ int main(void)
 	getline(cin, line);
 	PI = str2mat(line);
 	getline(cin, line);
-	O_seq = str2seq(line); // emmission sequence
+	O_seq = str2seq(line);
 
-	matrix test = alpha1(B, PI, O_seq);
-	dispmat(test);
+	matrix outmat = alpha_forward(A, B, PI, O_seq);
+	cout << outmat[0][O_seq.size()-1];
 
-	// dispmat(A);
-	// cout << "\n";
-	// dispmat(B);
-	// cout << "\n";
-	// dispmat(PI);
-	// cout << "\n" << line << "\n\n" << ans << "\n";
-
-	return 0; // answer goes here, eg. return mat2str(answer_matrix);
+	return 0; 
 }
 
 // FUNCTIONS BODIES HERE
@@ -231,7 +233,40 @@ matrix matcol (matrix inmat, int col)
 
 matrix alpha1 (matrix B, matrix PI, vector<int> O_seq)
 {
-	matrix outmat (1, vector<double> (PI[0].size()));
+	matrix outmat (1, vector<double> (PI[0].size()) );
 	outmat = vecdot(PI,matcol(B,O_seq[0]));
+	return outmat;
+}
+
+matrix alphan (matrix A, matrix B, matrix prev_alpha, int O_t)
+{
+	matrix new_alpha (1, vector<double> (prev_alpha[0].size()) );
+	matrix alpha_A = matmul(prev_alpha, A);
+	matrix B_Ot = matcol(B, O_t);
+	new_alpha = vecdot(alpha_A, B_Ot);
+	return new_alpha;
+}
+
+double alphasum (matrix alpha)
+{
+	double sum = 0;
+	for (int i = 0; i < alpha[0].size(); i++)
+	{
+		sum += alpha[0][i];
+	}
+	return sum;
+}
+
+matrix alpha_forward(matrix A, matrix B, matrix PI, vector<int> O_seq)
+{
+	matrix outmat (1, vector<double> (O_seq.size()) );
+	matrix prev_alpha = alpha1(B, PI, O_seq);
+	outmat[0][0] = alphasum(prev_alpha);
+
+	for (int i = 1; i < O_seq.size(); i++)
+	{
+		prev_alpha = alphan(A, B, prev_alpha, O_seq[i]);
+		outmat[0][i] = alphasum(prev_alpha);
+	}
 	return outmat;
 }
