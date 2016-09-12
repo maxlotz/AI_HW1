@@ -16,6 +16,12 @@ using namespace std;
 
 typedef vector< vector<double> > matrix; // matrices are all vectors of vectors of doubles
 
+struct _2mat
+{
+	matrix val;
+	matrix idx;
+};
+
 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
@@ -58,11 +64,26 @@ vector<int> alpha_forward(matrix A, matrix B, matrix PI, vector<int> O_seq);
 // Prints state sequence to cout as required by Kattis
 void printseq(vector<int> state_seq);
 
-// returns normalized row vector given input row vector and normalisation factor (use rowsum function)
+// Returns normalized row vector given input row vector and normalisation factor (use rowsum function)
 matrix normalize(matrix inmat, double normfactor);
 
-// returns max index of row vector matrix size (1xN)
+// Returns max index of row vector matrix size (1xN)
 int maxidxmat(matrix inmat);
+
+// Returns max value of row vector matrix size (1xN)
+double maxvalmat(matrix inmat);
+
+// Populates matrix of size rowxcol with double val;
+matrix repval(double val, int row, int col);
+
+// Does 1 pass of viterbi and returns struct containing a matrix with the delta values for that timestep, and another for their indexes for that timestep
+_2mat viterbin(matrix A, matrix B, matrix prev_delta, int O_t);
+
+// Calculates final delta value (TxN) and delta index matrix (T-1 x N)for all timesteps
+_2mat viterbimat(matrix A, matrix B, matrix PI, vector<int> O_seq);
+
+// Given the final delta value and index matrices, calculates the sequence
+vector<int> calviterbiseq(matrix val, matrix idx);
 
 // MAIN PROGRAM HERE
 int main(void)
@@ -82,8 +103,14 @@ int main(void)
 	getline(cin, line);
 	O_seq = str2seq(line);
 
-	vector<int> out = alpha_forward(A, B, PI, O_seq);
-	printseq(out);
+	_2mat out;
+	out = viterbimat(A, B, PI, O_seq);
+	vector<int> revans = calviterbiseq(out.val, out.idx);
+
+	for (int i = 1; i < revans.size()+1; i++)
+	{
+		cout << revans[revans.size()-i] << " ";
+	}
 
 	return 0; 
 }
@@ -308,4 +335,87 @@ matrix normalize(matrix inmat, double normfactor)
 int maxidxmat(matrix inmat)
 {
 	return(distance(inmat[0].begin(), max_element(inmat[0].begin(), inmat[0].end())));
+}
+
+double maxvalmat(matrix inmat)
+{
+	return *max_element(inmat[0].begin(), inmat[0].end());
+}
+
+matrix repval(double val, int row, int col)
+{
+	matrix outmat (row, vector<double> (col) );
+	for (int i = 0; i < row; i++)
+	{
+		for (int j = 0; j < col; j++)
+		{
+			outmat[i][j] = val;
+		}
+	}
+	return outmat;
+}
+
+_2mat viterbin(matrix A, matrix B, matrix prev_delta, int O_t)
+{
+	_2mat out;
+	matrix _val (1, vector<double> (prev_delta[0].size()) );
+	matrix _idx (1, vector<double> (prev_delta[0].size()) );
+	matrix temp (1, vector<double> (prev_delta[0].size()) );
+	matrix bcol;
+	for (int i = 0; i < prev_delta[0].size(); i++)
+	{
+		bcol = repval(B[i][O_t],prev_delta[0].size(),1); // creates column vector populated with the value bi(Ot)
+		temp = vecdot(prev_delta,matcol(A,i));	
+		temp = vecdot(temp, bcol);
+		_val[0][i] = maxvalmat(temp);
+		_idx[0][i] = maxidxmat(temp); 
+	}
+	out.val = _val;
+	out.idx = _idx;
+	return out;
+}
+
+_2mat viterbimat(matrix A, matrix B, matrix PI, vector<int> O_seq)
+{	
+	matrix prev_delta = alpha1 (B, PI, O_seq); // calculates first delta
+	_2mat out;	// creates matrix for deltas and delta indexes
+	_2mat final; // creates matrix for final full delta and delta index matrices
+	matrix idxsize (O_seq.size()-1, vector<double> (prev_delta.size()) ); // creates empty delta idx matrix of correct size
+	matrix valsize (O_seq.size(), vector<double> (prev_delta.size()) ); // creates empty delta value matrix of correct size
+	final.val = valsize; //makes the final delta value matrix above size (TxN)
+	final.idx = idxsize; //makes the final delta index matrix (TxN)
+
+	final.val[0] = prev_delta[0]; // adds first delta values to delta matrix
+
+	for (int i = 1; i < O_seq.size(); i++) // for each timestep
+	{
+		out = viterbin(A, B, prev_delta, O_seq[i]); // calulates delta value and delta index matrix (size 1xN) for each timestep
+		prev_delta = out.val;
+		final.val[i] = prev_delta[0];
+		final.idx[i-1] = out.idx[0];
+	}
+
+	return final;
+}
+
+vector<int> calviterbiseq(matrix val, matrix idx)
+{
+	vector<int> out;
+	int sz = val[0].size();
+	matrix temp (1, vector<double> (sz) );
+
+	for (int i = 0; i < sz; i++)
+	{
+		temp[0][i] = val[sz-1][i];
+	}
+	int Tfinal = maxidxmat(temp);
+	out.push_back(Tfinal);
+	int next_state = Tfinal;
+
+	for(int i = 1; i < idx.size() + 1; i++)
+	{
+		next_state = idx[idx.size()-i][next_state];
+		out.push_back(next_state);
+	}
+	return out;
 }
