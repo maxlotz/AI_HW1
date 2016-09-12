@@ -16,12 +16,6 @@ using namespace std;
 
 typedef vector< vector<double> > matrix; // matrices are all vectors of vectors of doubles
 
-struct ValIdx
-{
-	matrix val_mat;
-	vector<int> idx_vec;
-};
-
 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
@@ -55,15 +49,20 @@ matrix alpha1 (matrix B, matrix PI, vector<int> O_seq);
 // Does 1 time step for the alpha, returns matrix of alpha values (one for each state of that timestep). Size 1 x size_of_A
 matrix alphan (matrix A, matrix B, matrix prev_alpha, int O_t);
 
-// Sums each entry of the alpha matrix
-double alphasum (matrix alpha);
+// Sums entries of a row matrix size (1xN)
+double rowsum (matrix alpha);
 
 // Returns struct containing a matrix (row vector) of alpha values (probability of given observation occuring at that timestep) and a matrix (row vector) of their maximum index (most likely state at that timestep)
-ValIdx alpha_forward(matrix A, matrix B, matrix PI, vector<int> O_seq);
+vector<int> alpha_forward(matrix A, matrix B, matrix PI, vector<int> O_seq);
 
 // Prints state sequence to cout as required by Kattis
 void printseq(vector<int> state_seq);
 
+// returns normalized row vector given input row vector and normalisation factor (use rowsum function)
+matrix normalize(matrix inmat, double normfactor);
+
+// returns max index of row vector matrix size (1xN)
+int maxidxmat(matrix inmat);
 
 // MAIN PROGRAM HERE
 int main(void)
@@ -73,8 +72,6 @@ int main(void)
 	matrix B; //emmission matrix
 	matrix PI; //intial state distribution
 	vector<int> O_seq; //emmission sequence
-	matrix test (1,vector<double>(4));
-	test[0][2] = 10;
    	
 	getline(cin,line);	
 	A = str2mat(line);
@@ -84,9 +81,9 @@ int main(void)
 	PI = str2mat(line);
 	getline(cin, line);
 	O_seq = str2seq(line);
-	
-	ValIdx out = alpha_forward(A, B, PI, O_seq);
-	printseq(out.idx_vec);
+
+	vector<int> out = alpha_forward(A, B, PI, O_seq);
+	printseq(out);
 
 	return 0; 
 }
@@ -249,21 +246,21 @@ matrix matcol (matrix inmat, int col)
 
 matrix alpha1 (matrix B, matrix PI, vector<int> O_seq)
 {
-	matrix outmat (1, vector<double> (PI[0].size()) );
-	outmat = vecdot(PI,matcol(B,O_seq[0]));
+	matrix outmat (1, vector<double> (PI[0].size()) ); // creates empty matrix for alpha at first timestep
+	outmat = vecdot(PI,matcol(B,O_seq[0])); // multiplies each element of PI by each element of the column of B corresponding to the first emmission. Returns as row vector.
 	return outmat;
 }
 
 matrix alphan (matrix A, matrix B, matrix prev_alpha, int O_t)
 {
-	matrix new_alpha (1, vector<double> (prev_alpha[0].size()) );
-	matrix alpha_A = matmul(prev_alpha, A);
-	matrix B_Ot = matcol(B, O_t);
-	new_alpha = vecdot(alpha_A, B_Ot);
+	matrix new_alpha (1, vector<double> (prev_alpha[0].size()) ); // creates empty matrix for alpha
+	matrix alpha_A = matmul(prev_alpha, A); 
+	matrix B_Ot = matcol(B, O_t); // returns column of B corresponding to emmission given.
+	new_alpha = vecdot(alpha_A, B_Ot); 
 	return new_alpha;
 }
 
-double alphasum (matrix alpha)
+double rowsum (matrix alpha)
 {
 	double sum = 0;
 	for (int i = 0; i < alpha[0].size(); i++)
@@ -273,31 +270,42 @@ double alphasum (matrix alpha)
 	return sum;
 }
 
-ValIdx alpha_forward (matrix A, matrix B, matrix PI, vector<int> O_seq)
+vector<int> alpha_forward (matrix A, matrix B, matrix PI, vector<int> O_seq)
 {
-	ValIdx out;
-	matrix alphamat (1, vector<double> (O_seq.size()) );
-	vector<int> maxIDXvec;
+	vector<int> maxIDXvec;	// creates vector to hold indices containing state sequence
 
-	matrix prev_alpha = alpha1(B, PI, O_seq);
-
-	maxIDXvec.push_back(distance(prev_alpha[0].begin(), max_element(prev_alpha[0].begin(), prev_alpha[0].end())));
-	alphamat[0][0] = alphasum(prev_alpha);
-
+	matrix prev_alpha = alpha1(B, PI, O_seq); // calculates alpha at first timestep
+	double normfac = rowsum(prev_alpha);	// sums values of alpha at first timestep
+	prev_alpha = normalize(prev_alpha, normfac);	// normalises alpha at first timestep
+	maxIDXvec.push_back(maxidxmat(prev_alpha));		// adds index of highest value of alpha at first timstep to state sequence vector
+	
+	// Does the same as above for timesteps 2:T
 	for (int i = 1; i < O_seq.size(); i++)
 	{
 		prev_alpha = alphan(A, B, prev_alpha, O_seq[i]);
-
-		maxIDXvec.push_back(distance(prev_alpha[0].begin(), max_element(prev_alpha[0].begin(), prev_alpha[0].end())));
-		alphamat[0][i] = alphasum(prev_alpha);
+		normfac = rowsum(prev_alpha);
+		prev_alpha = normalize(prev_alpha, normfac);
+		maxIDXvec.push_back(maxidxmat(prev_alpha));
 	}
-	out.val_mat = alphamat;
-	out.idx_vec = maxIDXvec;
-
-	return out;
+	return maxIDXvec;
 }
 
 void printseq(vector<int> state_seq)
 {
 	for(int i = 0; i < state_seq.size(); i++) cout << state_seq[i] << " ";
+}
+
+matrix normalize(matrix inmat, double normfactor)
+{
+	matrix outmat (1, vector<double> (inmat[0].size()) );
+	for(int i = 0; i < inmat[0].size(); i++)
+	{
+		outmat[0][i] = inmat[0][i]/normfactor;
+	}
+	return outmat;
+}
+
+int maxidxmat(matrix inmat)
+{
+	return(distance(inmat[0].begin(), max_element(inmat[0].begin(), inmat[0].end())));
 }
