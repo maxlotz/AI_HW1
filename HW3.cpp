@@ -10,10 +10,18 @@ You are allowed to use all standard libraries included with C++.*/
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <algorithm>
 
 using namespace std;
 
 typedef vector< vector<double> > matrix; // matrices are all vectors of vectors of doubles
+
+struct ValIdx
+{
+	matrix val_mat;
+	vector<int> idx_vec;
+};
+
 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
@@ -23,16 +31,16 @@ void dispmat(matrix inmat);
 // Multiplies two matrices. If there is a dimension mismatch, error is printed to terminal
 matrix matmul (matrix mat_a, matrix mat_b);
 
-// Performs dot multiplication of a (NxK) matrix and a 1-column (Kx1) matrix
+// Performs dot multiplication of a (NxK) matrix and a 1-column (Kx1) matrix, transposes it and returns a (NxK) matrix
 matrix vecdot (matrix inmat, matrix colmat);
 
-// returns transpose of given matrix
+// Returns transpose of given matrix
 matrix transpose (matrix inmat);
 
 // Converts string from input file into a matrix
 matrix str2mat (string line);
 
-// converts string from input file into vector of ints containing the emmission sequence
+// Converts string from input file into vector of ints containing the emmission sequence
 vector<int> str2seq (string line);
 
 // Converts matrix into string for output format (opposite of str2mat)
@@ -50,8 +58,11 @@ matrix alphan (matrix A, matrix B, matrix prev_alpha, int O_t);
 // Sums each entry of the alpha matrix
 double alphasum (matrix alpha);
 
-// Returns vector of alpha values for each observation and timestep
-matrix alpha_forward(matrix A, matrix B, matrix PI, vector<int> O_seq);
+// Returns struct containing a matrix (row vector) of alpha values (probability of given observation occuring at that timestep) and a matrix (row vector) of their maximum index (most likely state at that timestep)
+ValIdx alpha_forward(matrix A, matrix B, matrix PI, vector<int> O_seq);
+
+// Prints state sequence to cout as required by Kattis
+void printseq(vector<int> state_seq);
 
 
 // MAIN PROGRAM HERE
@@ -62,6 +73,8 @@ int main(void)
 	matrix B; //emmission matrix
 	matrix PI; //intial state distribution
 	vector<int> O_seq; //emmission sequence
+	matrix test (1,vector<double>(4));
+	test[0][2] = 10;
    	
 	getline(cin,line);	
 	A = str2mat(line);
@@ -71,8 +84,9 @@ int main(void)
 	PI = str2mat(line);
 	getline(cin, line);
 	O_seq = str2seq(line);
-
-	dispmat(outmat);
+	
+	ValIdx out = alpha_forward(A, B, PI, O_seq);
+	printseq(out.idx_vec);
 
 	return 0; 
 }
@@ -130,7 +144,7 @@ matrix vecdot (matrix inmat, matrix mat_col)
 				outmat[i][j] = inmat[j][i]*mat_col[i][0];
 			}
 		}
-		return outmat;
+		return transpose(outmat);
 	}
 }
 
@@ -259,16 +273,31 @@ double alphasum (matrix alpha)
 	return sum;
 }
 
-matrix alpha_forward(matrix A, matrix B, matrix PI, vector<int> O_seq)
+ValIdx alpha_forward (matrix A, matrix B, matrix PI, vector<int> O_seq)
 {
-	matrix outmat (1, vector<double> (O_seq.size()) );
+	ValIdx out;
+	matrix alphamat (1, vector<double> (O_seq.size()) );
+	vector<int> maxIDXvec;
+
 	matrix prev_alpha = alpha1(B, PI, O_seq);
-	outmat[0][0] = alphasum(prev_alpha);
+
+	maxIDXvec.push_back(distance(prev_alpha[0].begin(), max_element(prev_alpha[0].begin(), prev_alpha[0].end())));
+	alphamat[0][0] = alphasum(prev_alpha);
 
 	for (int i = 1; i < O_seq.size(); i++)
 	{
 		prev_alpha = alphan(A, B, prev_alpha, O_seq[i]);
-		outmat[0][i] = alphasum(prev_alpha);
+
+		maxIDXvec.push_back(distance(prev_alpha[0].begin(), max_element(prev_alpha[0].begin(), prev_alpha[0].end())));
+		alphamat[0][i] = alphasum(prev_alpha);
 	}
-	return outmat;
+	out.val_mat = alphamat;
+	out.idx_vec = maxIDXvec;
+
+	return out;
+}
+
+void printseq(vector<int> state_seq)
+{
+	for(int i = 0; i < state_seq.size(); i++) cout << state_seq[i] << " ";
 }
