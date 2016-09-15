@@ -20,10 +20,15 @@ typedef vector< vector<double> > matrix; // matrices are all vectors of vectors 
 
 struct s1
 {
-	matrix alphas;
-	vector<double> c;
+	matrix mat;
+	vector<double> vec;
 };
 
+struct s2
+{
+	vector<matrix> mat3d; // essentially a 3d array, its a vector<vector<vector<double>>>
+	matrix mat;
+};
 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
@@ -78,6 +83,10 @@ matrix betan(matrix A, matrix B, int O_t, matrix next_beta);
 // Performs backward pass and returns beta matrix
 matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq);
 
+// performs gamma pass, calculates gamma_i (vector) and gamma_ij (matrix) and returns as object of s1
+s2 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq);
+
+// Made timesteps as global variables here.
 int T;
 int N;
 int K;
@@ -103,24 +112,48 @@ int main(void)
 	N = A.size();			// no. of states
 	K = B[0].size();		// no. of observations
 
-	dispmat(A);
+	cout << "\nT is " << T << "\tN is " << N << "\tK is " << K << "\n";
+
+	cout << "\n" << "state transission matrix A size (NxN)" << "\n";
+	dispmat(A);		// display A
 	cout << "\n";
-	dispmat(B);
+	cout << "Observation matrix B size (NxK)" << "\n";
+	dispmat(B);		// display B
 	cout << "\n";
-	for (int i = 0; i < O_seq.size(); i++) cout << O_seq[i] << " ";
+	cout << "Emmission sequence B size (T)" << "\n";
+	for (int i = 0; i < T; i++) cout << O_seq[i] << "\t";	// display emmission sequence
+	cout << "\n";
 
 	s1 out;
-	out = forward_pass(A, B, PI, O_seq);
+	out = forward_pass(A, B, PI, O_seq);	// calculates alphas
+	matrix alphas = out.mat;
+	cout << "\n" << "Alpha_t(i) size (TxN)" << "\n";
+	dispmat(alphas); // displays alphas
 	cout << "\n";
 
-	dispmat(out.alphas);
+	cout << "Normalisation values c, size (T)" << "\n";
+	for(int i = 0; i < T; i++) cout << out.vec[i] << "\t"; // displays normalisation values
+	cout << "\n\n";	
+
+	matrix betas = backward_pass(out.vec, A, B, O_seq);		// calculates betas
+	cout << "Beta_t(i) size (TxN)" << "\n";
+	dispmat(betas);	// displays betas
 	cout << "\n";
 
-	for(int i = 0; i < O_seq.size(); i++) cout << out.c[i] << " ";
-	cout << "\n";
+	s2 out2;
 
-	matrix betas = backward_pass(out.c, A, B, O_seq);
-	dispmat(betas);
+	out2 = gammas(alphas, betas, A, B, O_seq);
+	matrix gamma_i = out2.mat;
+	vector<matrix> gamma_ij = out2.mat3d;
+
+	cout << "gammat_(i) size (TxN)\n";
+	dispmat(gamma_i);
+	cout << "\ngammat_(ij) size(T-1xNxN)\n";
+	for (int i = 0; i < T-1; i++)
+	{
+		dispmat(gamma_ij[i]);
+		cout << "\n";
+	}
 
 	return 0; 
 }
@@ -331,8 +364,8 @@ s1 forward_pass (matrix A, matrix B, matrix PI, vector<int> O_seq)
 		alphas = popmat(alphas, prev_alpha, i);
 		c.push_back(normfac);
 	}
-	out.alphas = alphas;
-	out.c = c;
+	out.mat = alphas;
+	out.vec = c;
 	return out;
 }
 
@@ -390,4 +423,47 @@ matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq)
 		betas = popmat(betas, prev_beta, i);
 	}
 	return betas;
+}
+
+s2 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq)
+{
+	s2 out;
+	matrix gamma_i (T, vector<double>(N)); // initialises empty matrix size TxN with zeros.
+	vector<matrix> gamma_ij(T-1, matrix(N, vector<double>(N))); // initialises empty 3d matrix size T-1xNxN with zeros.
+
+	// calculates gamma_ij amd gamma_i for t=0 to T-2, making them both length T-1
+	for (int t = 0; t < T-1; t++) // from 0 to T-1
+	{
+		double denom = 0;
+		for (int i = 0; i < N; i ++) // from 0 to N-1
+		{
+			for(int j = 0; j < N; j++)
+			{
+				denom += alphas[t][i]*A[i][j]*B[j][O_seq[t+1]]*betas[t+1][j];
+			}
+		}
+		for (int i = 0; i < N; i++) // from 0 to N-1
+		{
+			for (int j = 0; j < N; j++)
+			{
+				gamma_ij[t][i][j] = (alphas[t][i]*A[i][j]*B[j][O_seq[t+1]])/denom;
+				gamma_i[t][i] += gamma_ij[t][i][j]; 
+			}
+		}
+	}
+	// special case, final value for gamma_i, now it is size T
+	// This definitely works correctly
+	double denom = 0;
+	for (int i = 0; i < N; i++)
+	{
+		denom += alphas[T-1][i];
+	}
+	for (int i = 0; i < N; i++)
+	{
+		gamma_i[T-1][i] = alphas[T-1][i]/denom;
+	}
+
+	out.mat3d = gamma_ij;
+	out.mat = gamma_i;
+	return out;
 }
