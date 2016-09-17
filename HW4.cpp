@@ -30,6 +30,13 @@ struct s2
 	matrix mat;
 };
 
+struct s2
+{
+	matrix A;
+	matrix B;
+	matrix PI;
+}
+
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
 // Displays the contents of a matrix to the terminal, columns seperated by tab, rows seperated by newline
@@ -379,19 +386,6 @@ matrix normalize(matrix inmat, double normfactor)
 	return outmat;
 }
 
-matrix repval(double val, int row, int col)
-{
-	matrix outmat (row, vector<double> (col) );
-	for (int i = 0; i < row; i++)
-	{
-		for (int j = 0; j < col; j++)
-		{
-			outmat[i][j] = val;
-		}
-	}
-	return outmat;
-}
-
 matrix popmat(matrix a, matrix b, int row)
 {
 	for (int i = 0; i < a[0].size(); i++)
@@ -466,4 +460,31 @@ s2 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq)
 	out.mat3d = gamma_ij;
 	out.mat = gamma_i;
 	return out;
+}
+
+s3 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i)
+{	
+	// Initialises empty matrices
+	matrix A (N, vector<double>(N));
+	matrix B (N, vector<double>(K));
+	matrix PI (1, vector<double>(N));
+
+	//re-estimate PI
+	for(int i = 0; i < N; i++) PI[0][i] = gamma_i[0][i]; // from O to N-1
+
+	//re-estimate A
+	for(int i = 0; i < N; i++)	// from 0 to N-1
+	{
+		for(int j = 0; j < N; j++) // from 0 to N-1
+		{
+			double numer, denom = 0;
+			for(t = 0; t < T-1; t++) // from 0 to T-2
+			{
+				numer+= gamma_ij[t][i][j];
+				denom+= gamma_i[t][i];
+			}
+			A[i][j] = numer/denom;
+		}
+	}
+
 }
