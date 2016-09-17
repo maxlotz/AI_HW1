@@ -13,34 +13,17 @@ Test with ./a.out <samples/hmm3_01.in */
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <cmath>
+#include <float.h>
 
 using namespace std;
 
 typedef vector< vector<double> > matrix; // matrices are all vectors of vectors of doubles
 
-struct s1
-{
-	matrix mat;
-	vector<double> vec;
-};
-
-struct s2
-{
-	vector<matrix> mat3d; // essentially a 3d array, its a vector<vector<vector<double>>>
-	matrix mat;
-};
-
-struct s3
-{
-	matrix A;
-	matrix B;
-	matrix PI;
-};
-
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
-// Displays the contents of a matrix to the terminal, columns seperated by tab, rows seperated by newline
-void dispmat(matrix inmat); 
+// prints matrix to terminal
+void dispmat(matrix inmat);
 
 // Returns transpose of given matrix
 matrix transpose (matrix inmat);
@@ -54,71 +37,52 @@ vector<int> str2seq (string line);
 // Converts matrix into string for output format (opposite of str2mat)
 string mat2str (matrix inmat);
 
-// Returns probability of getting first observation of the emmission sequence
-matrix alpha1 (matrix B, matrix PI, vector<int> O_seq);
+class HMM {
+	private:
 
-// Returns struct containing a matrix (row vector) of alpha values (probability of given observation occuring at that timestep) and a matrix (row vector) of their maximum index (most likely state at that timestep)
-s1 forward_pass(matrix A, matrix B, matrix PI, vector<int> O_seq);
+	public:
+		matrix A, B, PI, alpha, beta, gamma_i;
+		vector<int> O_seq;
+		vector<double> c;
+		vector<matrix> gamma_ij;
+		double lgprob, oldlogprob;
+		int T, N, K, iters, maxiters;
 
-// Performs backward pass and returns beta matrix
-matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq);
+		HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq); // constructor
+		void forward_pass();
+		void backward_pass();
+		void gammas();
+		void Re_estimate();
+		void logprob();
+};
 
-// performs gamma pass, calculates gamma_i (vector) and gamma_ij (matrix) and returns as object of s1
-s2 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq);
-
-// Made timesteps as global variables here.
-int T;
-int N;
-int K;
 // MAIN PROGRAM HERE
 int main(void)
 {
   	string line;
-	matrix A; //transmission matrix
-	matrix B; //emmission matrix
-	matrix PI; //intial state distribution
-	vector<int> O_seq; //emmission sequence
+	matrix _A; //transmission matrix
+	matrix _B; //emmission matrix
+	matrix _PI; //intial state distribution
+	vector<int> _O_seq; //emmission sequence
    	
 	getline(cin,line);	
-	A = str2mat(line);
+	_A = str2mat(line);
 	getline(cin, line);
-	B = str2mat(line);
+	_B = str2mat(line);
 	getline(cin, line);
-	PI = str2mat(line);
+	_PI = str2mat(line);
 	getline(cin, line);
-	O_seq = str2seq(line);
-	
-	T = O_seq.size();		// no. of timesteps (observation sequence size)
-	N = A.size();			// no. of states
-	K = B[0].size();		// no. of observations
+	_O_seq = str2seq(line);
 
-	cout << "\nT is " << T << "\tN is " << N << "\tK is " << K << "\n";
-
-	cout << "\n" << "state transission matrix A size (NxN)" << "\n";
-	dispmat(A);		// display A
-	cout << "\n";
-	cout << "Observation matrix B size (NxK)" << "\n";
-	dispmat(B);		// display B
-	cout << "\n";
-	cout << "Emmission sequence B size (T)" << "\n";
-	for (int i = 0; i < T; i++) cout << O_seq[i] << "\t";	// display emmission sequence
-	cout << "\n\n";
-	cout << "intial probability matrix PI size (N) " << "\n";
-	dispmat(PI);
-	cout << "\n";
-	
-	s1 out;
-	out = forward_pass (A, B, PI, O_seq);
-	matrix beta = backward_pass(out.vec, A, B,O_seq);
-	dispmat(beta);
-
+	HMM model(_A, _B, _PI, _O_seq);
+	dispmat(model.A);
 	return 0; 
 }
 
 // FUNCTIONS BODIES HERE
+
 void dispmat(matrix inmat)
 {	
-	int a = T + 2;
 	for (int i = 0; i < inmat.size(); i++)
 	{
 	    for (int j = 0; j < inmat[i].size(); j++)
@@ -217,9 +181,24 @@ string mat2str (matrix inmat)
 	return outline;
 }
 
-s1 forward_pass (matrix A, matrix B, matrix PI, vector<int> O_seq)
+// class functions here
+
+HMM::HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq)
 {
-	s1 out;
+	maxiters = 0;
+	iters = 0;
+	oldlogprob = -DBL_MAX;
+	T = in_O_seq.size();
+	N = in_A.size();
+	K = in_B[0].size();
+	A = in_A;
+	B = in_B;
+	PI = in_PI;
+	O_seq = in_O_seq;
+}
+
+void HMM::forward_pass()
+{
 	// creates alpha and c matrix of correct size and fills with zeros
 	matrix alpha (T, vector<double>(N));
 	vector<double> c(T);
@@ -230,12 +209,14 @@ s1 forward_pass (matrix A, matrix B, matrix PI, vector<int> O_seq)
 		alpha[0][i] = PI[0][i]*B[i][O_seq[0]];
 		c[0] += alpha[0][i];
 	}
+
 	// scale alpha0(i)
 	c[0] = 1/c[0];
 	for (int i = 0; i < N; i ++)
 	{
 		alpha[0][i] = c[0]*alpha[0][i];
 	}
+
 	// compute alphat(i)
 	for (int t = 1; t < T; t++) // from 1 to T-1
 	{
@@ -255,16 +236,16 @@ s1 forward_pass (matrix A, matrix B, matrix PI, vector<int> O_seq)
 			alpha[t][i] = c[t]*alpha[t][i];
 		}
 	}
-	out.mat = alpha;
-	out.vec = c;
-	return out;
 }
 
-matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq)
+void HMM::backward_pass()
 {
-	matrix beta (T, vector<double>(N)); // creates beta matrix size TxN filled with zeros
+	// creates beta matrix size TxN filled with zeros
+	matrix beta (T, vector<double>(N)); 
+
 	// beta_t-1(i) = 1 scaled by C_t-1
 	for (int i = 0; i < N; i ++) beta[T-1][i] = c[T-1];
+
 	// backward pass
 	for (int t = T-2; t > -1; t--) // from T-2 to 0
 	{
@@ -277,14 +258,13 @@ matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq)
 			beta[t][i] = c[t]*beta[t][i];
 		}
 	}
-	return beta;
 }
 
-s2 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq)
+void HMM::gammas()
 {
-	s2 out;
-	matrix gamma_i (T, vector<double>(N)); // initialises empty matrix size TxN with zeros.
-	vector<matrix> gamma_ij(T-1, matrix(N, vector<double>(N))); // initialises empty 3d matrix size T-1xNxN with zeros.
+	// creates necessary matrices filled with zeros
+	matrix gamma_i (T, vector<double>(N)); 
+	vector<matrix> gamma_ij(T-1, matrix(N, vector<double>(N)));
 
 	// calculates gamma_ij amd gamma_i for t=0 to T-2, making them both length T-1
 	for (int t = 0; t < T-1; t++) // from 0 to T-1
@@ -294,38 +274,32 @@ s2 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq)
 		{
 			for(int j = 0; j < N; j++)
 			{
-				denom += alphas[t][i]*A[i][j]*B[j][O_seq[t+1]]*betas[t+1][j];
+				denom += alpha[t][i]*A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j];
 			}
 		}
 		for (int i = 0; i < N; i++) // from 0 to N-1
 		{
 			for (int j = 0; j < N; j++)
 			{
-				gamma_ij[t][i][j] = (alphas[t][i]*A[i][j]*B[j][O_seq[t+1]])/denom;
+				gamma_ij[t][i][j] = (alpha[t][i]*A[i][j]*B[j][O_seq[t+1]])/denom;
 				gamma_i[t][i] += gamma_ij[t][i][j]; 
 			}
 		}
 	}
-	// special case, final value for gamma_i, now it is size T
-	// This definitely works correctly
+	// special case for gammaT-1(i)
 	double denom = 0;
 	for (int i = 0; i < N; i++)
 	{
-		denom += alphas[T-1][i];
+		denom += alpha[T-1][i];
 	}
 	for (int i = 0; i < N; i++)
 	{
-		gamma_i[T-1][i] = alphas[T-1][i]/denom;
+		gamma_i[T-1][i] = alpha[T-1][i]/denom;
 	}
-
-	out.mat3d = gamma_ij;
-	out.mat = gamma_i;
-	return out;
 }
 
-s3 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i)
+void HMM::Re_estimate()
 {	
-	s3 out;
 	// Initialises empty matrices
 	matrix A (N, vector<double>(N));
 	matrix B (N, vector<double>(K));
@@ -349,4 +323,25 @@ s3 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i)
 		}
 	}
 
+	// re-estimate B
+	for (int i = 0; i < N; i++) // from 0 to N-1
+	{
+		for(int j = 0; j < N; j++) // from 0 to N-1
+		{
+			double numer, denom = 0;
+			for(int t = 0; t < T; t++) // from 0 to T-1
+			{
+				if(O_seq[t] == j) numer+= gamma_i[t][i];
+				denom += gamma_i[t][i];
+			}
+			B[i][j] = numer/denom;
+		}
+	}
+}
+
+void HMM::logprob()
+{
+	double lgprob = 0;
+	for(int i = 0; i < T; i++) lgprob+= log(c[i]);
+	lgprob = -lgprob;
 }
