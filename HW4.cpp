@@ -30,23 +30,17 @@ struct s2
 	matrix mat;
 };
 
-struct s2
+struct s3
 {
 	matrix A;
 	matrix B;
 	matrix PI;
-}
+};
 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
 // Displays the contents of a matrix to the terminal, columns seperated by tab, rows seperated by newline
 void dispmat(matrix inmat); 
-
-// Multiplies two matrices. If there is a dimension mismatch, error is printed to terminal
-matrix matmul (matrix mat_a, matrix mat_b);
-
-// Performs dot multiplication of a (NxK) matrix and a 1-column (Kx1) matrix, transposes it and returns a (NxK) matrix
-matrix vecdot (matrix inmat, matrix colmat);
 
 // Returns transpose of given matrix
 matrix transpose (matrix inmat);
@@ -60,32 +54,11 @@ vector<int> str2seq (string line);
 // Converts matrix into string for output format (opposite of str2mat)
 string mat2str (matrix inmat);
 
-// Returns column matrix which is the given column of the input matrix
-matrix matcol (matrix inmat, int col);
-
 // Returns probability of getting first observation of the emmission sequence
 matrix alpha1 (matrix B, matrix PI, vector<int> O_seq);
 
-// Does 1 time step for the alpha, returns matrix of alpha values (one for each state of that timestep). Size 1 x size_of_A
-matrix alphan (matrix A, matrix B, matrix prev_alpha, int O_t);
-
-// Sums entries of a row matrix size (1xN)
-double rowsum (matrix alpha);
-
 // Returns struct containing a matrix (row vector) of alpha values (probability of given observation occuring at that timestep) and a matrix (row vector) of their maximum index (most likely state at that timestep)
 s1 forward_pass(matrix A, matrix B, matrix PI, vector<int> O_seq);
-
-// Returns normalized row vector given input row vector and normalisation factor (use rowsum function)
-matrix normalize(matrix inmat, double normfactor);
-
-// Populates matrix of size rowxcol with double val;
-matrix repval(double val, int row, int col);
-
-// Accepts matrix a (TxN) and b (1xN), and populates matrix a row row with values of b, uses row index starting from 0!
-matrix popmat(matrix a, matrix b, int row);
-
-// Does 1 timestep for Beta, returns row matrix of Beta values for that timestep
-matrix betan(matrix A, matrix B, int O_t, matrix next_beta);
 
 // Performs backward pass and returns beta matrix
 matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq);
@@ -129,38 +102,15 @@ int main(void)
 	cout << "\n";
 	cout << "Emmission sequence B size (T)" << "\n";
 	for (int i = 0; i < T; i++) cout << O_seq[i] << "\t";	// display emmission sequence
+	cout << "\n\n";
+	cout << "intial probability matrix PI size (N) " << "\n";
+	dispmat(PI);
 	cout << "\n";
-
+	
 	s1 out;
-	out = forward_pass(A, B, PI, O_seq);	// calculates alphas
-	matrix alphas = out.mat;
-	cout << "\n" << "Alpha_t(i) size (TxN)" << "\n";
-	dispmat(alphas); // displays alphas
-	cout << "\n";
-
-	cout << "Normalisation values c, size (T)" << "\n";
-	for(int i = 0; i < T; i++) cout << out.vec[i] << "\t"; // displays normalisation values
-	cout << "\n\n";	
-
-	matrix betas = backward_pass(out.vec, A, B, O_seq);		// calculates betas
-	cout << "Beta_t(i) size (TxN)" << "\n";
-	dispmat(betas);	// displays betas
-	cout << "\n";
-
-	s2 out2;
-
-	out2 = gammas(alphas, betas, A, B, O_seq);
-	matrix gamma_i = out2.mat;
-	vector<matrix> gamma_ij = out2.mat3d;
-
-	cout << "gammat_(i) size (TxN)\n";
-	dispmat(gamma_i);
-	cout << "\ngammat_(ij) size(T-1xNxN)\n";
-	for (int i = 0; i < T-1; i++)
-	{
-		dispmat(gamma_ij[i]);
-		cout << "\n";
-	}
+	out = forward_pass (A, B, PI, O_seq);
+	matrix beta = backward_pass(out.vec, A, B,O_seq);
+	dispmat(beta);
 
 	return 0; 
 }
@@ -176,50 +126,6 @@ void dispmat(matrix inmat)
 	        cout << inmat[i][j] << "\t";
 	    }
 	    cout << "\n";
-	}
-}
-
-matrix matmul (matrix mat_a, matrix mat_b)
-{
-	if (mat_a[0].size() != mat_b.size())
-	{
-		cout << "dimension mismatch\n";
-	}
-	else
-	{
-		matrix mat_c (mat_a.size(),vector<double>(mat_b[0].size()));
-		for(int i = 0; i < mat_a.size(); i++)
-		{
-			for(int j = 0; j < mat_b[0].size(); j++)
-			{
-				for(int k = 0; k < mat_a[0].size(); k++)
-				{
-					mat_c[i][j] += mat_a[i][k]*mat_b[k][j]; 
-				}
-			}
-
-		}   
-		return mat_c;
-	}
-}
-
-matrix vecdot (matrix inmat, matrix mat_col)
-{	
-	if(inmat[0].size() != mat_col.size())
-	{
-		cout << "dimension mismatch\n";
-	}
-	else
-	{
-		matrix outmat (inmat[0].size(), vector<double> (inmat.size()) );
-		for(int i = 0; i < inmat[0].size(); i++)
-		{
-			for(int j = 0; j < inmat.size(); j++)
-			{
-				outmat[i][j] = inmat[j][i]*mat_col[i][0];
-			}
-		}
-		return transpose(outmat);
 	}
 }
 
@@ -311,112 +217,67 @@ string mat2str (matrix inmat)
 	return outline;
 }
 
-matrix matcol (matrix inmat, int col)
-{
-	matrix outmat (inmat.size(), vector<double> (1));
-
-	for (int i = 0; i < inmat.size(); i++)
-	{
-		outmat[i][0] = inmat[i][col];
-	}
-	return outmat;
-}
-
-matrix alpha1 (matrix B, matrix PI, vector<int> O_seq)
-{
-	matrix outmat (1, vector<double>(N)); // creates empty matrix for alpha at first timestep
-	outmat = vecdot(PI,matcol(B,O_seq[0])); // multiplies each element of PI by each element of the column of B corresponding to the first emmission. Returns as row vector.
-	return outmat;
-}
-
-matrix alphan (matrix A, matrix B, matrix prev_alpha, int O_t)
-{
-	matrix new_alpha (1, vector<double>(N)); // creates empty matrix for alpha
-	matrix alpha_A = matmul(prev_alpha, A); 
-	matrix B_Ot = matcol(B, O_t); // returns column of B corresponding to emmission given.
-	new_alpha = vecdot(alpha_A, B_Ot); 
-	return new_alpha;
-}
-
-double rowsum (matrix alpha)
-{
-	double sum = 0;
-	for (int i = 0; i < N; i++)
-	{
-		sum += alpha[0][i];
-	}
-	return sum;
-}
-
 s1 forward_pass (matrix A, matrix B, matrix PI, vector<int> O_seq)
 {
 	s1 out;
-	matrix alphas (T, vector<double>(N)); // creates empty matrix size (TxN) for alphas
-	vector<double> c; // creates vector of doubles to hold normalisation factors c
+	// creates alpha and c matrix of correct size and fills with zeros
+	matrix alpha (T, vector<double>(N));
+	vector<double> c(T);
 
-	matrix prev_alpha = alpha1(B, PI, O_seq); // calculates alpha at first timestep
-	double normfac = rowsum(prev_alpha);	// sums values of alpha at first timestep
-	prev_alpha = normalize(prev_alpha, normfac);	// normalises alpha at first timestep
-
-	alphas = popmat(alphas, prev_alpha, 0);
-	c.push_back(normfac);
-
-	// Does the same as above for timesteps 2:T
-	for (int i = 1; i < T; i++)
+	// compute alpha0(i)
+	for (int i = 0; i < N; i++)	// from 0 to N-1
 	{
-		prev_alpha = alphan(A, B, prev_alpha, O_seq[i]);
-		normfac = rowsum(prev_alpha);
-		prev_alpha = normalize(prev_alpha, normfac);
-
-		alphas = popmat(alphas, prev_alpha, i);
-		c.push_back(normfac);
+		alpha[0][i] = PI[0][i]*B[i][O_seq[0]];
+		c[0] += alpha[0][i];
 	}
-	out.mat = alphas;
+	// scale alpha0(i)
+	c[0] = 1/c[0];
+	for (int i = 0; i < N; i ++)
+	{
+		alpha[0][i] = c[0]*alpha[0][i];
+	}
+	// compute alphat(i)
+	for (int t = 1; t < T; t++) // from 1 to T-1
+	{
+		for (int i = 0; i < N; i++) // from 0 to N-1
+		{
+			for (int j = 0; j < N; j++) // from 0 to N-1
+			{
+				alpha[t][i] += alpha[t-1][j]*A[j][i];
+			}
+			alpha[t][i] = alpha[t][i]*B[i][O_seq[t]];
+			c[t] += alpha[t][i];
+		}
+		// scale alphat(i)
+		c[t] = 1/c[t];
+		for (int i = 0; i < N; i++)
+		{
+			alpha[t][i] = c[t]*alpha[t][i];
+		}
+	}
+	out.mat = alpha;
 	out.vec = c;
 	return out;
 }
 
-matrix normalize(matrix inmat, double normfactor)
-{
-	matrix outmat (1, vector<double> (inmat[0].size()) );
-	for(int i = 0; i < inmat[0].size(); i++)
-	{
-		outmat[0][i] = inmat[0][i]/normfactor;
-	}
-	return outmat;
-}
-
-matrix popmat(matrix a, matrix b, int row)
-{
-	for (int i = 0; i < a[0].size(); i++)
-	{
-		a[row][i] = b[0][i];
-	}
-	return a;
-}
-
-matrix betan(matrix A, matrix B, int O_t, matrix next_beta)
-{
-	matrix prev_beta = vecdot(next_beta, matcol(B, O_t));
-	prev_beta = matmul(A, transpose(prev_beta));
-	return transpose(prev_beta);
-}
-
 matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq)
 {
-	matrix betas (T,vector<double>(N));
-	matrix beta1 (1, vector<double> (N,1));
-	beta1 = normalize(beta1,c[T-1]);
-	betas = popmat(betas, beta1, T-1);
-	matrix prev_beta = beta1;
-
-	for (int i = T-2; i > -1; i--) //from T-2 to 0
+	matrix beta (T, vector<double>(N)); // creates beta matrix size TxN filled with zeros
+	// beta_t-1(i) = 1 scaled by C_t-1
+	for (int i = 0; i < N; i ++) beta[T-1][i] = c[T-1];
+	// backward pass
+	for (int t = T-2; t > -1; t--) // from T-2 to 0
 	{
-		prev_beta = betan(A, B, O_seq[i+1], prev_beta);
-		prev_beta = normalize(prev_beta, c[i]);
-		betas = popmat(betas, prev_beta, i);
+		for (int i = 0; i < N; i ++) // from 0 to N-1
+		{
+			for (int j = 0; j < N; j++) // from 0 to N-1
+			{
+				beta[t][i] += A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j];
+			}
+			beta[t][i] = c[t]*beta[t][i];
+		}
 	}
-	return betas;
+	return beta;
 }
 
 s2 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq)
@@ -464,6 +325,7 @@ s2 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq)
 
 s3 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i)
 {	
+	s3 out;
 	// Initialises empty matrices
 	matrix A (N, vector<double>(N));
 	matrix B (N, vector<double>(K));
@@ -478,7 +340,7 @@ s3 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i)
 		for(int j = 0; j < N; j++) // from 0 to N-1
 		{
 			double numer, denom = 0;
-			for(t = 0; t < T-1; t++) // from 0 to T-2
+			for(int t = 0; t < T-1; t++) // from 0 to T-2
 			{
 				numer+= gamma_ij[t][i][j];
 				denom+= gamma_i[t][i];
