@@ -28,7 +28,7 @@ class HMM {
 		vector<int> O_seq;
 		vector<double> c;
 		vector<matrix> gamma_ij;
-		double lgprob, oldlogprob;
+		double logprob, oldlogprob;
 		int T, N, K, iters, maxiters;
 
 		HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq); // constructor
@@ -36,7 +36,8 @@ class HMM {
 		void backward_pass();
 		void gamma_pass();
 		void Re_estimate();
-		void logprob();
+		void calclogprob();
+		void iterate();
 };
 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
@@ -75,21 +76,8 @@ int main(void)
 	_O_seq = str2seq(line);
 	
 	HMM model(_A, _B, _PI, _O_seq);
-	model.forward_pass();
-	model.backward_pass();
-	model.gamma_pass();
-	cout << "\n";
-	dispmat(model.alpha);
-	cout << "\n";
-	dispmat(model.beta);
-	cout << "\n";
-	dispmat(model.gamma_i);
-	cout << "\n";
-	for(int i = 0; i < model.T; i++)
-	{
-		dispmat(model.gamma_ij[i]);
-		cout << "\n";
-	}
+	model.iterate();
+	cout << "\niteration reached = " << model.iters << "\nlogprob = " << model.logprob << "\noldlogprob = " << model.oldlogprob << "\n\n";
 }
 
 // FUNCTIONS BODIES HERE
@@ -198,7 +186,7 @@ string mat2str (matrix inmat)
 
 HMM::HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq)
 {
-	maxiters = 0;
+	maxiters = 1000;
 	iters = 0;
 	oldlogprob = -DBL_MAX;
 	T = in_O_seq.size();
@@ -351,9 +339,23 @@ void HMM::Re_estimate()
 	}
 }
 
-void HMM::logprob()
+void HMM::calclogprob()
 {
-	lgprob = 0;
-	for(int i = 0; i < T; i++) lgprob+= log(c[i]);
-	lgprob = -lgprob;
+	logprob = 0;
+	for(int i = 0; i < T; i++) logprob+= log(c[i]);
+	logprob = -logprob;
+}
+
+void HMM::iterate()
+{    
+	while((iters < maxiters) && (logprob > oldlogprob))
+	{
+		iters ++;
+		forward_pass();
+		backward_pass();
+		gamma_pass();
+		Re_estimate();
+		calclogprob();
+		oldlogprob = logprob;
+	}
 }
