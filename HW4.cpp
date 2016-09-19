@@ -350,12 +350,12 @@ void HMM::iterate()
 {    
 	while((iters < maxiters) && (logprob >= oldlogprob))
 	{
-		iters ++;
+		oldlogprob = logprob;
 		forward_pass();
 		backward_pass();
 		gamma_pass();
 		Re_estimate();
 		calclogprob();
-		oldlogprob = logprob;
+		iters ++;
 	}
 }
