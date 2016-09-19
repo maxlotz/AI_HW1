@@ -76,8 +76,9 @@ int main(void)
 	_O_seq = str2seq(line);
 	
 	HMM model(_A, _B, _PI, _O_seq);
+
 	model.iterate();
-	cout << "\niteration reached = " << model.iters << "\nlogprob = " << model.logprob << "\noldlogprob = " << model.oldlogprob << "\n\n";
+	cout << "\niteration reached:\t" << model.iters << "\n\nA =\n" << mat2str(model.A) << "\n\nB =\n" << mat2str(model.B) << "\n\n";
 }
 
 // FUNCTIONS BODIES HERE
@@ -348,7 +349,7 @@ void HMM::calclogprob()
 
 void HMM::iterate()
 {    
-	while((iters < maxiters) && (logprob >= oldlogprob))
+	while((iters < maxiters) /*&& (logprob >= oldlogprob)*/)
 	{
 		oldlogprob = logprob;
 		forward_pass();
