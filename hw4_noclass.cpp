@@ -11,6 +11,7 @@ Test with ./a.out <samples/hmm3_01.in */
 #include <string>
 #include <algorithm>
 #include <cmath>
+#include <float.h>
 
 using namespace std;
 
@@ -23,6 +24,8 @@ struct s1
 	matrix mat2;
 	matrix mat3;
 	vector<double> vec;
+	double db;
+	int itgr;
 };
 
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
@@ -51,20 +54,24 @@ s1 forward_pass(matrix A, matrix B, matrix PI, vector<int> O_seq);
 // Performs backward pass and returns beta matrix
 matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq);
 
-// performs gamma pass, calculates gamma_i (vector) and gamma_ij (matrix) and returns as object of s1
+// Performs gamma pass, calculates gamma_i (vector) and gamma_ij (matrix) and returns as object of s1
 s1 gamma_pass (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq);
 
 // Performs re-estimation
 s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq);
 
-// computelogprob
+// Computes log probability
 double computelogprob(vector<double> c);
+
+// // Does full iteration
+s1 iterate(matrix A, matrix B, matrix PI, vector<int> O_seq);
 
 // Made timesteps as global variables here.
 int T;
 int N;
 int K;
 int maxiters = 100;
+double oldlogprob = -DBL_MAX;
 
 // MAIN PROGRAM HERE
 int main(void)
@@ -87,18 +94,18 @@ int main(void)
 	T = O_seq.size();		// no. of timesteps (observation sequence size)
 	N = A.size();			// no. of states
 	K = B[0].size();		// no. of observations
-	
-	s1 out;
-	s1 out2;
-	s1 out3;
-	matrix beta;
-	matrix _A (N, vector<double>(N));
 
-	out = forward_pass(A, B, PI, O_seq);
-	beta = backward_pass(out.vec, A, B, O_seq);
-	out2 = gamma_pass(out.mat1, beta, A, B, O_seq);
-	out3 = Re_estimate(out2.mat3d, out2.mat1, O_seq);
-	dispmat(out3.mat1);
+	s1 out;
+	out = iterate (A, B, PI, O_seq);
+	cout << "\n\nfinished after " << out.itgr << " iterations\n\n";
+	cout << "\n\nlogprob is\n\n" << out.db << "\n\n";		
+	cout << "\n\nA =\n\n";
+	dispmat(out.mat1);	
+	cout << "\n\nB =\n\n";
+	dispmat(out.mat2);	
+	cout << "\n\nPI =\n\n";
+	dispmat(out.mat3);	
+	cout << "\n\n";
 
 	return 0; 
 }
@@ -318,7 +325,7 @@ s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq)
 	matrix _A (N, vector<double>(N));
 	matrix _B (N, vector<double>(K));
 	matrix _PI (1, vector<double>(N));
-	matrix x;
+	matrix x; // For some batshit crazy reason, if you remove this, A is NAN
 
 	//re-estimate PI
 	for(int i = 0; i < N; i++) _PI[0][i] = gamma_i[0][i]; // from O to N-1
@@ -352,9 +359,6 @@ s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq)
 			_B[i][j] = numer/denom;
 		}
 	}
-
-	dispmat(x);
-
 	out.mat1 = _A;
 	out.mat2 = _B;
 	out.mat3 = _PI;
@@ -368,4 +372,36 @@ double computelogprob(vector<double> c)
 	return -logprob;
 }
 
+s1 iterate(matrix A, matrix B, matrix PI, vector<int> O_seq)
+{
+	s1 out;
+	double logprob = 0;
+	int iters = 0;
+
+	s1 out1;
+	s1 out2;
+	s1 out3;
+	matrix beta;
+	out3.mat1 = A;
+	out3.mat2 = B;
+	out3.mat3 = PI;
+
+	while ((iters < maxiters) /*&& (logprob > oldlogprob)*/)
+	{	
+		iters++;
+		oldlogprob = logprob;
+		out1 = forward_pass (out3.mat1, out3.mat2, out3.mat3, O_seq);
+		beta = backward_pass(out1.vec, out3.mat1, out3.mat2, O_seq);
+		out2 = gamma_pass (out1.mat1, beta, out3.mat1, out3.mat2, O_seq);
+		out3 = Re_estimate(out2.mat3d, out2.mat1, O_seq);
+		logprob = computelogprob(out1.vec);
+
+		out.mat1 = out3.mat1;
+		out.mat2 = out3.mat2;
+		out.mat3 = out3.mat3;
+		out.db = logprob;
+		out.itgr = iters;
+	}
+	return out;
+}
 

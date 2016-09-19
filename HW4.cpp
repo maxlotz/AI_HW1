@@ -76,9 +76,20 @@ int main(void)
 	_O_seq = str2seq(line);
 	
 	HMM model(_A, _B, _PI, _O_seq);
-
 	model.iterate();
-	cout << "\niteration reached:\t" << model.iters << "\n\nA =\n" << mat2str(model.A) << "\n\nB =\n" << mat2str(model.B) << "\n\n";
+
+	cout << "\n\nfinished after " << model.iters << " iterations\n\n";
+	cout << "\n\nlogprob is\n\n" << model.logprob << "\n\n";		
+	cout << "\n\nA =\n\n";
+	dispmat(model.A);
+	cout << "\n\nB =\n\n";
+	dispmat(model.B);
+	cout << "\n\nPI =\n\n";
+	dispmat(model.PI);
+
+
+	// model.iterate();
+	// cout << "\niteration reached:\t" << model.iters << "\n\nA =\n" << mat2str(model.A) << "\n\nB =\n" << mat2str(model.B) << "\n\n";
 }
 
 // FUNCTIONS BODIES HERE
@@ -187,7 +198,7 @@ string mat2str (matrix inmat)
 
 HMM::HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq)
 {
-	maxiters = 1000;
+	maxiters = 100;
 	iters = 0;
 	oldlogprob = -DBL_MAX;
 	T = in_O_seq.size();
@@ -306,6 +317,13 @@ void HMM::gamma_pass()
 
 void HMM::Re_estimate()
 {	
+	matrix mt_A (N, vector<double>(N));
+	matrix mt_B (N, vector<double>(N));
+	matrix mt_PI (1, vector<double>(N));
+	A = mt_A;
+	B = mt_B;
+	PI = mt_PI;
+
 	//re-estimate PI
 	for(int i = 0; i < N; i++) PI[0][i] = gamma_i[0][i]; // from O to N-1
 
