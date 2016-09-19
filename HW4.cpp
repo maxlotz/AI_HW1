@@ -348,7 +348,7 @@ void HMM::calclogprob()
 
 void HMM::iterate()
 {    
-	while((iters < maxiters) && (logprob > oldlogprob))
+	while((iters < maxiters) && (logprob >= oldlogprob))
 	{
 		iters ++;
 		forward_pass();
