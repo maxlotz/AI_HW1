@@ -20,6 +20,25 @@ using namespace std;
 
 typedef vector< vector<double> > matrix; // matrices are all vectors of vectors of doubles
 
+class HMM {
+	private:
+
+	public:
+		matrix A, B, PI, alpha, beta, gamma_i;
+		vector<int> O_seq;
+		vector<double> c;
+		vector<matrix> gamma_ij;
+		double lgprob, oldlogprob;
+		int T, N, K, iters, maxiters;
+
+		HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq); // constructor
+		void forward_pass();
+		void backward_pass();
+		void gamma_pass();
+		void Re_estimate();
+		void logprob();
+};
+
 // FUNCTION DECLARATIONS AND EXPLANATIONS  HERE
 
 // prints matrix to terminal
@@ -36,25 +55,6 @@ vector<int> str2seq (string line);
 
 // Converts matrix into string for output format (opposite of str2mat)
 string mat2str (matrix inmat);
-
-class HMM {
-	private:
-
-	public:
-		matrix A, B, PI, alpha, beta, gamma_i;
-		vector<int> O_seq;
-		vector<double> c;
-		vector<matrix> gamma_ij;
-		double lgprob, oldlogprob;
-		int T, N, K, iters, maxiters;
-
-		HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq); // constructor
-		void forward_pass();
-		void backward_pass();
-		void gammas();
-		void Re_estimate();
-		void logprob();
-};
 
 // MAIN PROGRAM HERE
 int main(void)
@@ -73,10 +73,23 @@ int main(void)
 	_PI = str2mat(line);
 	getline(cin, line);
 	_O_seq = str2seq(line);
-
+	
 	HMM model(_A, _B, _PI, _O_seq);
-	dispmat(model.A);
-	return 0; 
+	model.forward_pass();
+	model.backward_pass();
+	model.gamma_pass();
+	cout << "\n";
+	dispmat(model.alpha);
+	cout << "\n";
+	dispmat(model.beta);
+	cout << "\n";
+	dispmat(model.gamma_i);
+	cout << "\n";
+	for(int i = 0; i < model.T; i++)
+	{
+		dispmat(model.gamma_ij[i]);
+		cout << "\n";
+	}
 }
 
 // FUNCTIONS BODIES HERE
@@ -199,9 +212,10 @@ HMM::HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq)
 
 void HMM::forward_pass()
 {
-	// creates alpha and c matrix of correct size and fills with zeros
-	matrix alpha (T, vector<double>(N));
-	vector<double> c(T);
+	matrix mt_alph (T, vector<double>(N)); 
+	vector<double> mt_c(T);
+	alpha = mt_alph;
+	c = mt_c;
 
 	// compute alpha0(i)
 	for (int i = 0; i < N; i++)	// from 0 to N-1
@@ -241,7 +255,8 @@ void HMM::forward_pass()
 void HMM::backward_pass()
 {
 	// creates beta matrix size TxN filled with zeros
-	matrix beta (T, vector<double>(N)); 
+	matrix mt_bet (T, vector<double>(N)); 
+	beta = mt_bet;
 
 	// beta_t-1(i) = 1 scaled by C_t-1
 	for (int i = 0; i < N; i ++) beta[T-1][i] = c[T-1];
@@ -260,11 +275,13 @@ void HMM::backward_pass()
 	}
 }
 
-void HMM::gammas()
+void HMM::gamma_pass()
 {
 	// creates necessary matrices filled with zeros
-	matrix gamma_i (T, vector<double>(N)); 
-	vector<matrix> gamma_ij(T-1, matrix(N, vector<double>(N)));
+	matrix mt_gi (T, vector<double>(N)); 
+	vector<matrix> mt_gij (T-1, matrix(N, vector<double>(N)));
+	gamma_i = mt_gi;
+	gamma_ij = mt_gij;
 
 	// calculates gamma_ij amd gamma_i for t=0 to T-2, making them both length T-1
 	for (int t = 0; t < T-1; t++) // from 0 to T-1
@@ -281,7 +298,7 @@ void HMM::gammas()
 		{
 			for (int j = 0; j < N; j++)
 			{
-				gamma_ij[t][i][j] = (alpha[t][i]*A[i][j]*B[j][O_seq[t+1]])/denom;
+				gamma_ij[t][i][j] = (alpha[t][i]*A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j])/denom;
 				gamma_i[t][i] += gamma_ij[t][i][j]; 
 			}
 		}
@@ -300,11 +317,6 @@ void HMM::gammas()
 
 void HMM::Re_estimate()
 {	
-	// Initialises empty matrices
-	matrix A (N, vector<double>(N));
-	matrix B (N, vector<double>(K));
-	matrix PI (1, vector<double>(N));
-
 	//re-estimate PI
 	for(int i = 0; i < N; i++) PI[0][i] = gamma_i[0][i]; // from O to N-1
 
@@ -341,7 +353,7 @@ void HMM::Re_estimate()
 
 void HMM::logprob()
 {
-	double lgprob = 0;
+	lgprob = 0;
 	for(int i = 0; i < T; i++) lgprob+= log(c[i]);
 	lgprob = -lgprob;
 }
