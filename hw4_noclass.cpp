@@ -52,7 +52,7 @@ s1 forward_pass(matrix A, matrix B, matrix PI, vector<int> O_seq);
 matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq);
 
 // performs gamma pass, calculates gamma_i (vector) and gamma_ij (matrix) and returns as object of s1
-s1 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq);
+s1 gamma_pass (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq);
 
 // Performs re-estimation
 s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq);
@@ -92,20 +92,14 @@ int main(void)
 	s1 out2;
 	s1 out3;
 	matrix beta;
+	matrix _A (N, vector<double>(N));
 
-	out = forward_pass (A, B, PI, O_seq);
+	out = forward_pass(A, B, PI, O_seq);
 	beta = backward_pass(out.vec, A, B, O_seq);
-	out2 = gammas (out.mat1, beta, A, B, O_seq);
+	out2 = gamma_pass(out.mat1, beta, A, B, O_seq);
 	out3 = Re_estimate(out2.mat3d, out2.mat1, O_seq);
+	dispmat(out3.mat1);
 
-	cout << "\n\nA =\n\n";
-	dispmat(out3.mat1);	
-
-	cout << "\n\nB =\n\n";
-	dispmat(out3.mat2);	
-
-	cout << "\n\nPI =\n\n";
-	dispmat(out3.mat3);	
 	return 0; 
 }
 
@@ -274,7 +268,7 @@ matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq)
 	return beta;
 }
 
-s1 gammas (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq)
+s1 gamma_pass (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_seq)
 {
 	s1 out;
 	matrix gamma_i (T, vector<double>(N)); // initialises empty matrix size TxN with zeros.
@@ -321,12 +315,13 @@ s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq)
 {	
 	s1 out;
 	// Initialises empty matrices
-	matrix A (N, vector<double>(N));
-	matrix B (N, vector<double>(K));
-	matrix PI (1, vector<double>(N));
+	matrix _A (N, vector<double>(N));
+	matrix _B (N, vector<double>(K));
+	matrix _PI (1, vector<double>(N));
+	matrix x;
 
 	//re-estimate PI
-	for(int i = 0; i < N; i++) PI[0][i] = gamma_i[0][i]; // from O to N-1
+	for(int i = 0; i < N; i++) _PI[0][i] = gamma_i[0][i]; // from O to N-1
 
 	//re-estimate A
 	for(int i = 0; i < N; i++)	// from 0 to N-1
@@ -339,7 +334,7 @@ s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq)
 				numer+= gamma_ij[t][i][j];
 				denom+= gamma_i[t][i];
 			}
-			A[i][j] = numer/denom;
+			_A[i][j] = numer/denom;
 		}
 	}
 
@@ -354,13 +349,15 @@ s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq)
 				if(O_seq[t] == j) numer+= gamma_i[t][i];
 				denom += gamma_i[t][i];
 			}
-			B[i][j] = numer/denom;
+			_B[i][j] = numer/denom;
 		}
 	}
 
-	out.mat1 = A;
-	out.mat2 = B;
-	out.mat3 = PI;
+	dispmat(x);
+
+	out.mat1 = _A;
+	out.mat2 = _B;
+	out.mat3 = _PI;
 	return out;
 }
 
