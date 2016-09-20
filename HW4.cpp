@@ -29,7 +29,7 @@ class HMM {
 		vector<double> c;
 		vector<matrix> gamma_ij;
 		double logprob, oldlogprob;
-		int T, N, K, iters, maxiters;
+		int T, N, M, iters, maxiters;
 
 		HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq); // constructor
 		void forward_pass();
@@ -78,9 +78,7 @@ int main(void)
 	HMM model(_A, _B, _PI, _O_seq);
 	model.iterate();
 
-	cout << "\nconverged on iteration = " << model.iters;
-	cout << "\n\nlogprob = " << model.logprob;	
-	cout << "\n\nA =\n" << mat2str(model.A) << "\n\nB =\n" << mat2str(model.B) << "\n\n";
+	cout << mat2str(model.A) << "\n" << mat2str(model.B);
 }
 
 // FUNCTIONS BODIES HERE
@@ -189,13 +187,13 @@ string mat2str (matrix inmat)
 
 HMM::HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq)
 {
-	maxiters = 1000;
+	maxiters = 100;
 	iters = 0;
 	oldlogprob = -DBL_MAX;
 	logprob = -DBL_MAX;
 	T = in_O_seq.size();
 	N = in_A.size();
-	K = in_B[0].size();
+	M = in_B[0].size();
 	A = in_A;
 	B = in_B;
 	PI = in_PI;
@@ -217,7 +215,7 @@ void HMM::forward_pass()
 	}
 
 	// scale alpha0(i)
-	c[0] = 1/c[0];
+	c[0] = 1.0/c[0];
 	for (int i = 0; i < N; i ++)
 	{
 		alpha[0][i] = c[0]*alpha[0][i];
@@ -232,14 +230,14 @@ void HMM::forward_pass()
 			{
 				alpha[t][i] += alpha[t-1][j]*A[j][i];
 			}
-			alpha[t][i] = alpha[t][i]*B[i][O_seq[t]];
+			alpha[t][i] *= B[i][O_seq[t]];
 			c[t] += alpha[t][i];
 		}
 		// scale alphat(i)
-		c[t] = 1/c[t];
+		c[t] = 1.0/c[t];
 		for (int i = 0; i < N; i++)
 		{
-			alpha[t][i] = c[t]*alpha[t][i];
+			alpha[t][i] *= c[t];
 		}
 	}
 }
@@ -254,7 +252,7 @@ void HMM::backward_pass()
 	for (int i = 0; i < N; i ++) beta[T-1][i] = c[T-1];
 
 	// backward pass
-	for (int t = T-2; t > -1; t--) // from T-2 to 0
+	for (int t = T-2; t >= 0; t--) // from T-2 to 0
 	{
 		for (int i = 0; i < N; i ++) // from 0 to N-1
 		{
@@ -262,7 +260,7 @@ void HMM::backward_pass()
 			{
 				beta[t][i] += A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j];
 			}
-			beta[t][i] = c[t]*beta[t][i];
+			beta[t][i] *= c[t];
 		}
 	}
 }
@@ -279,7 +277,7 @@ void HMM::gamma_pass()
 	for (int t = 0; t < T-1; t++) // from 0 to T-1
 	{
 		double denom = 0;
-		for (int i = 0; i < N; i ++) // from 0 to N-1
+		for (int i = 0; i < N; i++) // from 0 to N-1
 		{
 			for(int j = 0; j < N; j++)
 			{
@@ -290,12 +288,12 @@ void HMM::gamma_pass()
 		{
 			for (int j = 0; j < N; j++)
 			{
-				gamma_ij[t][i][j] = alpha[t][i]*A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j]/denom;
+				gamma_ij[t][i][j] = (alpha[t][i]*A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j])/denom;
 				gamma_i[t][i] += gamma_ij[t][i][j]; 
 			}
 		}
 	}
-	// special case for gammaT-1(i)
+	//special case for gammaT-1(i)
 	double denom = 0;
 	for (int i = 0; i < N; i++)
 	{
@@ -337,7 +335,7 @@ void HMM::Re_estimate()
 	// re-estimate B
 	for (int i = 0; i < N; i++) // from 0 to N-1
 	{
-		for(int j = 0; j < N; j++) // from 0 to N-1
+		for(int j = 0; j < M; j++) // from 0 to M-1
 		{
 			double numer = 0, denom = 0;
 			for(int t = 0; t < T; t++) // from 0 to T-1
