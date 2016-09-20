@@ -332,7 +332,7 @@ void HMM::Re_estimate()
 	{
 		for(int j = 0; j < N; j++) // from 0 to N-1
 		{
-			double numer, denom = 0;
+			double numer = 0, denom = 0;
 			for(int t = 0; t < T-1; t++) // from 0 to T-2
 			{
 				numer+= gamma_ij[t][i][j];
@@ -347,10 +347,10 @@ void HMM::Re_estimate()
 	{
 		for(int j = 0; j < N; j++) // from 0 to N-1
 		{
-			double numer, denom = 0;
+			double numer = 0, denom = 0;
 			for(int t = 0; t < T; t++) // from 0 to T-1
 			{
-				if(O_seq[t] == j) numer+= gamma_i[t][i];
+				if(O_seq[t] == j) {numer+= gamma_i[t][i];}
 				denom += gamma_i[t][i];
 			}
 			B[i][j] = numer/denom;
