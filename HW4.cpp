@@ -5,7 +5,7 @@ System libraries
 
 You are allowed to use all standard libraries included with C++.
 
-Test with ./a.out <samples/hmm3_01.in */
+Test with ./a.out <samples/hmm4_01.in */
 
 #include <iostream>
 #include <vector>
@@ -74,22 +74,13 @@ int main(void)
 	_PI = str2mat(line);
 	getline(cin, line);
 	_O_seq = str2seq(line);
-	
+
 	HMM model(_A, _B, _PI, _O_seq);
 	model.iterate();
 
-	cout << "\n\nfinished after " << model.iters << " iterations\n\n";
-	cout << "\n\nlogprob is\n\n" << model.logprob << "\n\n";		
-	cout << "\n\nA =\n\n";
-	dispmat(model.A);
-	cout << "\n\nB =\n\n";
-	dispmat(model.B);
-	cout << "\n\nPI =\n\n";
-	dispmat(model.PI);
-
-
-	// model.iterate();
-	// cout << "\niteration reached:\t" << model.iters << "\n\nA =\n" << mat2str(model.A) << "\n\nB =\n" << mat2str(model.B) << "\n\n";
+	cout << "\nconverged on iteration = " << model.iters;
+	cout << "\n\nlogprob = " << model.logprob;	
+	cout << "\n\nA =\n" << mat2str(model.A) << "\n\nB =\n" << mat2str(model.B) << "\n\n";
 }
 
 // FUNCTIONS BODIES HERE
@@ -198,9 +189,10 @@ string mat2str (matrix inmat)
 
 HMM::HMM(matrix in_A, matrix in_B, matrix in_PI, vector<int> in_O_seq)
 {
-	maxiters = 100;
+	maxiters = 1000;
 	iters = 0;
 	oldlogprob = -DBL_MAX;
+	logprob = -DBL_MAX;
 	T = in_O_seq.size();
 	N = in_A.size();
 	K = in_B[0].size();
@@ -298,7 +290,7 @@ void HMM::gamma_pass()
 		{
 			for (int j = 0; j < N; j++)
 			{
-				gamma_ij[t][i][j] = (alpha[t][i]*A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j])/denom;
+				gamma_ij[t][i][j] = alpha[t][i]*A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j]/denom;
 				gamma_i[t][i] += gamma_ij[t][i][j]; 
 			}
 		}
@@ -367,8 +359,8 @@ void HMM::calclogprob()
 
 void HMM::iterate()
 {    
-	while((iters < maxiters) /*&& (logprob >= oldlogprob)*/)
-	{
+	while((iters < maxiters) && (logprob >= oldlogprob))
+	{	
 		oldlogprob = logprob;
 		forward_pass();
 		backward_pass();

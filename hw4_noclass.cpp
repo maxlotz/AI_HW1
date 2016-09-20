@@ -113,7 +113,6 @@ int main(void)
 // FUNCTIONS BODIES HERE
 void dispmat(matrix inmat)
 {	
-	int a = T + 2;
 	for (int i = 0; i < inmat.size(); i++)
 	{
 	    for (int j = 0; j < inmat[i].size(); j++)
@@ -227,28 +226,19 @@ s1 forward_pass (matrix A, matrix B, matrix PI, vector<int> O_seq)
 	}
 	// scale alpha0(i)
 	c[0] = 1/c[0];
-	for (int i = 0; i < N; i ++)
-	{
-		alpha[0][i] = c[0]*alpha[0][i];
-	}
+	for (int i = 0; i < N; i ++){alpha[0][i] = c[0]*alpha[0][i];}
 	// compute alphat(i)
 	for (int t = 1; t < T; t++) // from 1 to T-1
 	{
 		for (int i = 0; i < N; i++) // from 0 to N-1
 		{
-			for (int j = 0; j < N; j++) // from 0 to N-1
-			{
-				alpha[t][i] += alpha[t-1][j]*A[j][i];
-			}
-			alpha[t][i] = alpha[t][i]*B[i][O_seq[t]];
+			for (int j = 0; j < N; j++){alpha[t][i] += alpha[t-1][j]*A[j][i];}
+			alpha[t][i] *= B[i][O_seq[t]];
 			c[t] += alpha[t][i];
 		}
 		// scale alphat(i)
 		c[t] = 1/c[t];
-		for (int i = 0; i < N; i++)
-		{
-			alpha[t][i] = c[t]*alpha[t][i];
-		}
+		for (int i = 0; i < N; i++){alpha[t][i] = c[t]*alpha[t][i];}
 	}
 	out.mat1 = alpha;
 	out.vec = c;
@@ -259,17 +249,14 @@ matrix backward_pass(vector<double> c, matrix A, matrix B, vector<int> O_seq)
 {
 	matrix beta (T, vector<double>(N)); // creates beta matrix size TxN filled with zeros
 	// beta_t-1(i) = 1 scaled by C_t-1
-	for (int i = 0; i < N; i ++) beta[T-1][i] = c[T-1];
+	for (int i = 0; i < N; i ++) {beta[T-1][i] = c[T-1];}
 	// backward pass
 	for (int t = T-2; t > -1; t--) // from T-2 to 0
 	{
 		for (int i = 0; i < N; i ++) // from 0 to N-1
 		{
-			for (int j = 0; j < N; j++) // from 0 to N-1
-			{
-				beta[t][i] += A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j];
-			}
-			beta[t][i] = c[t]*beta[t][i];
+			for (int j = 0; j < N; j++){beta[t][i] += A[i][j]*B[j][O_seq[t+1]]*beta[t+1][j];}
+			beta[t][i] *= c[t];
 		}
 	}
 	return beta;
@@ -287,31 +274,22 @@ s1 gamma_pass (matrix alphas, matrix betas, matrix A, matrix B, vector<int> O_se
 		double denom = 0;
 		for (int i = 0; i < N; i ++) // from 0 to N-1
 		{
-			for(int j = 0; j < N; j++)
-			{
-				denom += alphas[t][i]*A[i][j]*B[j][O_seq[t+1]]*betas[t+1][j];
-			}
+			for(int j = 0; j < N; j++){denom += alphas[t][i]*A[i][j]*B[j][O_seq[t+1]]*betas[t+1][j];}
 		}
+		//weirdly denom(t) is always 1
 		for (int i = 0; i < N; i++) // from 0 to N-1
 		{
 			for (int j = 0; j < N; j++)
 			{
-				gamma_ij[t][i][j] = (alphas[t][i]*A[i][j]*B[j][O_seq[t+1]])*betas[t+1][j]/denom;
+				gamma_ij[t][i][j] = (alphas[t][i]*A[i][j]*B[j][O_seq[t+1]]*betas[t+1][j])/denom;
 				gamma_i[t][i] += gamma_ij[t][i][j]; 
 			}
 		}
 	}
 	// special case, final value for gamma_i, now it is size T
-	// This definitely works correctly
 	double denom = 0;
-	for (int i = 0; i < N; i++)
-	{
-		denom += alphas[T-1][i];
-	}
-	for (int i = 0; i < N; i++)
-	{
-		gamma_i[T-1][i] = alphas[T-1][i]/denom;
-	}
+	for (int i = 0; i < N; i++){denom += alphas[T-1][i];}
+	for (int i = 0; i < N; i++){gamma_i[T-1][i] = alphas[T-1][i]/denom;}
 
 	out.mat3d = gamma_ij;
 	out.mat1 = gamma_i;
@@ -322,26 +300,26 @@ s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq)
 {	
 	s1 out;
 	// Initialises empty matrices
-	matrix _A (N, vector<double>(N));
-	matrix _B (N, vector<double>(K));
-	matrix _PI (1, vector<double>(N));
+	matrix A (N, vector<double>(N));
+	matrix B (N, vector<double>(K));
+	matrix PI (1, vector<double>(N));
 	matrix x; // For some batshit crazy reason, if you remove this, A is NAN
 
 	//re-estimate PI
-	for(int i = 0; i < N; i++) _PI[0][i] = gamma_i[0][i]; // from O to N-1
+	for(int i = 0; i < N; i++) {PI[0][i] = gamma_i[0][i];} // from O to N-1
 
 	//re-estimate A
 	for(int i = 0; i < N; i++)	// from 0 to N-1
 	{
 		for(int j = 0; j < N; j++) // from 0 to N-1
 		{
-			double numer, denom = 0;
+			double numer = 0, denom = 0;
 			for(int t = 0; t < T-1; t++) // from 0 to T-2
 			{
 				numer+= gamma_ij[t][i][j];
 				denom+= gamma_i[t][i];
 			}
-			_A[i][j] = numer/denom;
+			A[i][j] = numer/denom;
 		}
 	}
 
@@ -350,32 +328,32 @@ s1 Re_estimate(vector<matrix> gamma_ij, matrix gamma_i, vector<int> O_seq)
 	{
 		for(int j = 0; j < N; j++) // from 0 to N-1
 		{
-			double numer, denom = 0;
+			double numer = 0, denom = 0;
 			for(int t = 0; t < T; t++) // from 0 to T-1
 			{
-				if(O_seq[t] == j) numer+= gamma_i[t][i];
+				if(O_seq[t] == j) {numer+= gamma_i[t][i];}
 				denom += gamma_i[t][i];
 			}
-			_B[i][j] = numer/denom;
+			B[i][j] = numer/denom;
 		}
 	}
-	out.mat1 = _A;
-	out.mat2 = _B;
-	out.mat3 = _PI;
+	out.mat1 = A;
+	out.mat2 = B;
+	out.mat3 = PI;
 	return out;
 }
 
 double computelogprob(vector<double> c)
 {
 	double logprob = 0;
-	for(int i = 0; i < T; i++) logprob+= log(c[i]);
+	for(int i = 0; i < T; i++) {logprob+= log(c[i]);}
 	return -logprob;
 }
 
 s1 iterate(matrix A, matrix B, matrix PI, vector<int> O_seq)
 {
 	s1 out;
-	double logprob = 0;
+	double logprob = -DBL_MAX;
 	int iters = 0;
 
 	s1 out1;
@@ -386,7 +364,7 @@ s1 iterate(matrix A, matrix B, matrix PI, vector<int> O_seq)
 	out3.mat2 = B;
 	out3.mat3 = PI;
 
-	while ((iters < maxiters) /*&& (logprob > oldlogprob)*/)
+	while ((iters < maxiters) && (logprob >= oldlogprob))
 	{	
 		iters++;
 		oldlogprob = logprob;
